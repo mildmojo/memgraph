@@ -1,0 +1,155 @@
+<html>
+  <head>
+    <style type="text/css">
+      * {
+        box-sizing: border-box;
+        padding: 0;
+        margin: 0;
+        font-family: Tahoma, sans;
+        color: #eee;
+      }
+
+      body {
+        background-color: #111;
+      }
+
+      .container {
+        width: 100vw;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-around;
+        align-items: center;
+      }
+
+      .container > * {
+        padding: 10px;
+      }
+
+      div.smoothie-chart-tooltip {
+        background: #444;
+        padding: 1em;
+        margin-top: 20px;
+        font-family: consolas;
+        color: white;
+        font-size: 10px;
+        pointer-events: none;
+      }
+
+      .caption {
+        width: 100vw;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        font-size: 45px;
+      }
+
+      .caption > span {
+        display: block;
+        width: 200px;
+      }
+
+      #MemAvailable {
+        text-align: right;
+      }
+    </style>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/vendor/smoothie.js"></script>
+    <script type="text/javascript">
+      let canvas;
+      let socket;
+      let line;
+      let chart;
+
+      window.addEventListener("resize", resizeCanvas, false);
+      whenReady(main);
+
+      function main() {
+        socket = io();
+        canvas = document.getElementById('smoothie-chart');
+        line = new TimeSeries();
+
+        resizeCanvas();
+
+        socket.on('memInfo', memInfo => {
+          chart = chart || makeChart(canvas, memInfo.MemTotal, line);
+          updateCaption(memInfo);
+          updateChart(memInfo);
+          console.log(`${memInfo.MemAvailable} / ${memInfo.MemTotal}`);
+        });
+      }
+
+      function makeChart(canvas, max, series) {
+        // Params from designer at: http://smoothiecharts.org/builder/
+        const chart = new SmoothieChart({
+          millisPerPixel: 51,
+          grid: { fillStyle:'#555' },
+          tooltip: true,
+          maxValue: max,
+          minValue: 0,
+          limitFPS: 15
+        });
+
+        chart.addTimeSeries(series, {
+          strokeStyle: '#ff7700',
+          lineWidth: 2,
+          fillStyle: 'rgba(255,128,13,0.30)'
+        });
+        chart.streamTo(canvas);
+
+        return chart;
+      }
+
+      function updateChart(memInfo) {
+        line.append(Date.now(), memInfo.MemAvailable);
+      }
+
+      function updateCaption(memInfo) {
+        const available = formatBytes(memInfo.MemAvailable * 1000);
+        const total = formatBytes(memInfo.MemTotal * 1000);
+        document.getElementById('MemAvailable').innerText = available
+        document.getElementById('MemTotal').innerText = total;
+      }
+
+      function resizeCanvas(e) {
+        var myCanvas = document.getElementById("smoothie-chart");
+        myCanvas.width = document.documentElement.clientWidth * 0.8;
+        myCanvas.height = myCanvas.width * 0.35;
+      }
+
+      // https://stackoverflow.com/a/18650828
+      function formatBytes(bytes, decimals = 2) {
+        if (bytes === 0) return '0 Bytes';
+
+        const k = 1024;
+        const dm = decimals < 0 ? 0 : decimals;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+      }
+
+      function whenReady(fn) {
+        if (document.readyState != 'loading'){
+          fn();
+        } else {
+          document.addEventListener('DOMContentLoaded', fn);
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div class="container">
+      <canvas id="smoothie-chart"></canvas>
+      <div class="caption">
+        <div>
+          <span id='MemAvailable'>0</span> &nbsp;/&nbsp; <span id='MemTotal'>0</span>
+        </div>
+        <div>
+          <span style="font-size: 20px">remains</span>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
