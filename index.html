@@ -127,7 +127,7 @@
         });
 
         socket.on('memInfo', memInfo => {
-          chart = chart || makeChart(canvas, memInfo.MemTotal, line);
+          chart = chart || makeChart(canvas, memInfo.MemTotal / 2, line);
           updateCaption(memInfo);
           updateChart(memInfo);
           // console.log(`${memInfo.MemAvailable} / ${memInfo.MemTotal}`);
