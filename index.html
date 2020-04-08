@@ -9,7 +9,6 @@
         margin: 0;
         font-family: Rokkitt, Tahoma, sans;
         color: #eee;
-        /*border: 1px solid red;*/
       }
 
       body {
@@ -17,15 +16,25 @@
       }
 
       .container {
-        width: 100vw;
+        width: 100%;
+        height: 100%;
         display: flex;
         flex-direction: column;
-        justify-content: space-around;
+        justify-content: space-between;
         align-items: center;
+        padding: 10px;
       }
 
-      .container > * {
-        padding: 10px;
+      #chart-container {
+        width: 100%;
+        flex-grow: 1;
+        display: flex;
+        flex-wrap: nowrap;
+      }
+
+      #chart {
+        width: 100%;
+        height: 100%;
       }
 
       div.smoothie-chart-tooltip {
@@ -39,7 +48,10 @@
       }
 
       .caption {
-        width: 100vw;
+        margin-top: 20px;
+        width: 100%;
+        height: 100px;
+        flex-shrink: 0;
         display: flex;
         flex-direction: column;
         justify-content: center;
@@ -49,7 +61,7 @@
 
       .caption .amount {
         display: inline-block;
-        width: 225px;
+        width: 250px;
       }
 
       .hidden {
@@ -63,31 +75,25 @@
 
       .icon {
         font-size: 24px;
+        padding: 20px;
       }
 
       #status-icons {
-        height: calc(100vw * 0.3);
+        height: 100%;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
-        position: absolute;
         left: 10px;
         top: 0;
-        margin-top: 10px;
-      }
-
-      .is-fullscreen #status-icons {
-        height: calc(100vw * 0.45);
+        margin-left: -100%;
       }
 
       #fullscreen {
-        padding: 10px;
         cursor: pointer;
         opacity: 0.6;
       }
 
       #offline {
-        padding: 10px;
       }
 
       #MemAvailable {
@@ -98,8 +104,27 @@
     <script src="/vendor/smoothie.js"></script>
     <script src="/vendor/fscreen.js"></script>
     <script type="text/javascript">
-      let canvas;
+      // Under this threshold, the display will change appearance.
+      const LOW_MEMORY_MB = 800;
+      // Zoom value for the chart Y axis; if your memory's always low, try 2 or 3.
+      const CHART_Y_ZOOM_LEVEL = 1;
+      // Speed of the chart on the X axis; lower values move faster.
+      const CHART_MILLIS_PER_PIXEL = 100;
+
+      // Themes
+      const CHART_COLORS = {
+        background: '#555',
+        fill: 'rgba(255,128,13,0.50)',
+        stroke: '#ff7700',
+      };
+      const CHART_LOW_MEM_COLORS = {
+        background: '#511',
+        fill: 'rgba(255,28,13,0.60)',
+        stroke: '#FF1111',
+      }
+
       let socket;
+      let canvas;
       let line;
       let chart;
 
@@ -108,7 +133,7 @@
 
       function main() {
         socket = io();
-        canvas = document.getElementById('smoothie-chart');
+        canvas = document.getElementById('chart');
         line = new TimeSeries();
         maxButton = document.getElementById('maximize');
         minButton = document.getElementById('minimize');
@@ -126,29 +151,35 @@
           offlineIcon.classList.remove('hidden');
         });
 
+        // Updates! All the updates!
         socket.on('memInfo', memInfo => {
-          chart = chart || makeChart(canvas, memInfo.MemTotal / 2, line);
+          chart = chart || makeChart(canvas, memInfo.MemTotal / CHART_Y_ZOOM_LEVEL, line);
           updateCaption(memInfo);
           updateChart(memInfo);
-          // console.log(`${memInfo.MemAvailable} / ${memInfo.MemTotal}`);
+          updateLowMemAppearance(memInfo, chart, line);
         });
+
+        // Update the tab favicon every once in a while.
+        setInterval(() => updateFavicon(canvas), 5000);
+        updateFavicon(canvas);
       }
 
-      function makeChart(canvas, max, series) {
+      function makeChart(canvas, max, timeSeries) {
         // Params from designer at: http://smoothiecharts.org/builder/
         const chart = new SmoothieChart({
-          millisPerPixel: 51,
-          grid: { fillStyle:'#555' },
+          millisPerPixel: CHART_MILLIS_PER_PIXEL,
+          grid: { fillStyle: CHART_COLORS.background },
           tooltip: true,
           maxValue: max,
           minValue: 0,
-          limitFPS: 15
+          limitFPS: 15,
+          responsive: true,
         });
 
-        chart.addTimeSeries(series, {
-          strokeStyle: '#ff7700',
-          lineWidth: 2,
-          fillStyle: 'rgba(255,128,13,0.30)'
+        chart.addTimeSeries(timeSeries, {
+          strokeStyle: CHART_COLORS.stroke,
+          lineWidth: 5,
+          fillStyle: CHART_COLORS.fill,
         });
         chart.streamTo(canvas);
 
@@ -159,6 +190,27 @@
         line.append(Date.now(), memInfo.MemAvailable);
       }
 
+      function updateLowMemAppearance(memInfo, chart, timeSeries) {
+        const elemAvailable = document.getElementById('MemAvailable')
+        const elemTotal = document.getElementById('MemTotal')
+        let chartColors;
+
+        if (isLowMemory(memInfo)) {
+          elemAvailable.classList.add('low-memory');
+          elemTotal.classList.add('low-memory');
+          chartColors = CHART_LOW_MEM_COLORS;
+        } else {
+          elemAvailable.classList.remove('low-memory');
+          elemTotal.classList.remove('low-memory');
+          chartColors = CHART_COLORS;
+        }
+
+        const opts = chart.getTimeSeriesOptions(timeSeries);
+        opts.fillStyle = chartColors.fill;
+        opts.strokeStyle = chartColors.stroke;
+        chart.options.grid.fillStyle = chartColors.background;
+      }
+
       function updateCaption(memInfo) {
         const available = formatBytes(memInfo.MemAvailable * 1000, 1);
         const total = formatBytes(memInfo.MemTotal * 1000, 1);
@@ -166,33 +218,61 @@
         const elemTotal = document.getElementById('MemTotal')
         elemAvailable.innerText = available
         elemTotal.innerText = total;
-        if (memInfo.MemAvailable < 650000) {
-          elemAvailable.classList.add('low-memory');
-          elemTotal.classList.add('low-memory');
-        } else {
-          elemAvailable.classList.remove('low-memory');
-          elemTotal.classList.remove('low-memory');
-        }
       }
 
-      function resizeCanvas(e) {
-        const myCanvas = document.getElementById("smoothie-chart");
+      function updateFavicon(canvas) {
+        const existingIcon = document.querySelector('link[rel="icon"]');
+        const newIcon = document.createElement('link');
+        newIcon.rel = 'icon';
+        newIcon.type = 'image/png';
+
+        if (existingIcon) {
+          document.head.replaceChild(newIcon, existingIcon);
+        } else {
+          document.head.appendChild(newIcon);
+        }
+        newIcon.href = canvas.toDataURL('image/png');
+      }
+
+      function resizeCanvas() {
+        const chartCanvas = document.getElementById("chart");
+        const chartContainer = document.getElementById("chart-container");
         const minimize = document.getElementById('minimize');
         const maximize = document.getElementById('maximize');
-
-        myCanvas.width = document.documentElement.clientWidth - 20;
+        chartCanvas.height = 0;
+        chartCanvas.width = 0;
+        const targetWidth = chartContainer.clientWidth;
+        const targetHeight = chartContainer.clientHeight;
 
         if (fscreen.fullscreenEnabled && fscreen.fullscreenElement) {
           document.body.classList.add('is-fullscreen');
           minimize.classList.remove('hidden');
           maximize.classList.add('hidden');
-          myCanvas.height = myCanvas.width * 0.45;
         } else {
           document.body.classList.remove('is-fullscreen');
           minimize.classList.add('hidden');
           maximize.classList.remove('hidden');
-          myCanvas.height = myCanvas.width * 0.29;
         }
+
+        chartCanvas.height = targetHeight;
+        chartCanvas.width = targetWidth;
+        console.log(`${targetWidth} x ${targetHeight}`);
+      }
+
+      function toggleFullScreen() {
+        const element = document.body;
+
+        if (fscreen.fullscreenEnabled) {
+          if (fscreen.fullscreenElement) {
+            fscreen.exitFullscreen();
+          } else {
+            fscreen.requestFullscreen(element);
+          }
+        }
+      }
+
+      function isLowMemory(memInfo) {
+        return memInfo.MemAvailable < LOW_MEMORY_MB * 1000;
       }
 
       // https://stackoverflow.com/a/18650828
@@ -215,32 +295,22 @@
           document.addEventListener('DOMContentLoaded', fn);
         }
       }
-
-      function toggleFullScreen() {
-        const element = document.body;
-
-        if (fscreen.fullscreenEnabled) {
-          if (fscreen.fullscreenElement) {
-            fscreen.exitFullscreen();
-          } else {
-            fscreen.requestFullscreen(element);
-          }
-        }
-      }
     </script>
   </head>
   <body>
     <div class="container">
-      <div id="status-icons">
-        <div id="fullscreen" class="icon">
-          <span id="maximize" onclick="toggleFullScreen()">⏫</span>
-          <span id="minimize" class="hidden" onclick="toggleFullScreen()">⏬</span>
-        </div>
-        <div id="offline" class="icon">
-          ⛔ Offline
+      <div id="chart-container">
+        <canvas id="chart"></canvas>
+        <div id="status-icons">
+          <div id="fullscreen" class="icon" onclick="toggleFullScreen()">
+            <span id="maximize">⏫</span>
+            <span id="minimize" class="hidden">⏬</span>
+          </div>
+          <div id="offline" class="icon">
+            ⛔ Offline
+          </div>
         </div>
       </div>
-      <canvas id="smoothie-chart"></canvas>
       <div class="caption">
         <div>
           <span id='MemAvailable' class="amount">0</span>
