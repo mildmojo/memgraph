@@ -18,13 +18,16 @@ app.get('/', function(req, res){
   res.sendFile(__dirname + '/index.html');
 });
 
-io.on('connection', function(socket){
+io.on('connection', async function(socket){
   console.log('a user connected');
 
   const loop = setInterval(async () => {
     const memInfo = await getMemInfo();
     socket.emit('memInfo', memInfo);
   }, REFRESH_INTERVAL_MS);
+
+  const {stdout} = await exec('hostname');
+  socket.emit('hostname', stdout.trim())
 
   socket.on('disconnect', () => clearInterval(loop));
 });

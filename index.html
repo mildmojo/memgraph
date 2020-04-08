@@ -73,6 +73,10 @@
         text-decoration: underline;
       }
 
+      .small-text {
+        font-size: 20px;
+      }
+
       .icon {
         font-size: 24px;
         padding: 20px;
@@ -144,6 +148,10 @@
         socket.on('connect', () => {
           console.log('Connected!');
           offlineIcon.classList.add('hidden');
+        });
+
+        socket.on('hostname', host => {
+          document.querySelector('#hostname').innerText = `on ${host}`;
         });
 
         socket.on('disconnect', () => {
@@ -313,12 +321,13 @@
       </div>
       <div class="caption">
         <div>
-          <span id='MemAvailable' class="amount">0</span>
+          <span id="MemAvailable" class="amount">0</span>
           &nbsp;/&nbsp;
-          <span id='MemTotal' class="amount">0</span>
+          <span id="MemTotal" class="amount">0</span>
         </div>
-        <div>
-          <span style="font-size: 20px">remains</span>
+        <div class="small-text">
+          <span>remains</span>
+          <span id="hostname"></span>
         </div>
       </div>
     </div>
