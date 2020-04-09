@@ -9,10 +9,12 @@
     <script type="text/javascript">
       // Under this threshold, the display will change appearance.
       const LOW_MEMORY_MB = 800;
-      // Zoom value for the chart Y axis; if your memory's always low, try 2 or 3.
+      // Zoom value for the chart Y axis; if your mem's always low, try 2 or 3.
       const CHART_Y_ZOOM_LEVEL = 1;
       // Speed of the chart on the X axis; lower values move faster.
       const CHART_MILLIS_PER_PIXEL = 100;
+      // Tab icon update interval; some browsers flicker annoyingly on redraw.
+      const FAVICON_UPDATE_INTERVAL_MS = 5 * 1000;
 
       // Themes
       const CHART_COLORS = {
@@ -30,9 +32,11 @@
       let canvas;
       let line;
       let chart;
+      let faviconUpdatedAt = 0;
+
+      onReady(main);
 
       window.addEventListener("resize", resizeCanvas, false);
-      onReady(main);
 
       function main() {
         socket = io();
@@ -51,6 +55,7 @@
 
         socket.on('hostname', host => {
           document.querySelector('#hostname').innerText = `on ${host}`;
+          document.title = `${host} MemGraph`;
         });
 
         socket.on('disconnect', () => {
@@ -60,17 +65,20 @@
 
         // Updates! All the updates!
         socket.on('memInfo', memInfo => {
+          const isFirstRun = !chart;
           chart = chart || makeChart(canvas, memInfo.MemTotal / CHART_Y_ZOOM_LEVEL, line);
+
           updateCaption(memInfo);
           updateChart(memInfo);
           updateLowMemAppearance(memInfo, chart, line);
+          updateFavicon(canvas);
         });
 
         // Update the tab favicon every once in a while.
         setInterval(() => updateFavicon(canvas), 5000);
-        updateFavicon(canvas);
       }
 
+      // Initialize the smoothie chart.
       function makeChart(canvas, max, timeSeries) {
         // Params from designer at: http://smoothiecharts.org/builder/
         const chart = new SmoothieChart({
@@ -93,10 +101,12 @@
         return chart;
       }
 
+      // Update the time series with new free memory data.
       function updateChart(memInfo) {
         line.append(Date.now(), memInfo.MemAvailable);
       }
 
+      // Set some styles to make the display look alarming when memory is low.
       function updateLowMemAppearance(memInfo, chart, timeSeries) {
         const elemAvailable = document.getElementById('MemAvailable')
         const elemTotal = document.getElementById('MemTotal')
@@ -118,6 +128,7 @@
         chart.options.grid.fillStyle = chartColors.background;
       }
 
+      // Update the caption text to match a memory stats snapshot.
       function updateCaption(memInfo) {
         const available = formatBytes(memInfo.MemAvailable * 1000, 1);
         const total = formatBytes(memInfo.MemTotal * 1000, 1);
@@ -127,7 +138,11 @@
         elemTotal.innerText = total;
       }
 
+      // Copy canvas to favicon for fun.
       function updateFavicon(canvas) {
+        if (Date.now() - faviconUpdatedAt < FAVICON_UPDATE_INTERVAL_MS) return;
+        faviconUpdatedAt = Date.now();
+
         const existingIcon = document.querySelector('link[rel="icon"]');
         const newIcon = document.createElement('link');
         newIcon.rel = 'icon';
@@ -141,29 +156,38 @@
         newIcon.href = canvas.toDataURL('image/png');
       }
 
+      // Make the chart canvas match its container's CSS size.
+      //
+      // Canvas element sizing is weird. CSS doesn't seem to control size-on-page,
+      // but instead informs the canvas about relative pixel size or something.
       function resizeCanvas() {
         const chartCanvas = document.getElementById("chart");
         const chartContainer = document.getElementById("chart-container");
         const minimize = document.getElementById('minimize');
         const maximize = document.getElementById('maximize');
+
+        // WORKAROUND: The container won't shrink to be smaller than its
+        //   content, so when the container gets smaller, setting the canvas to
+        //   the size of its container is a no-op. Get around that by sizing the
+        //   canvas to 0px so that the container can reflow, then observe the
+        //   container's new size and set the canvas to that. This introduces
+        //   a bit of flicker, but how often are you resizing your window
+        //   anyway?
         chartCanvas.height = 0;
         chartCanvas.width = 0;
         const targetWidth = chartContainer.clientWidth;
         const targetHeight = chartContainer.clientHeight;
+        chartCanvas.height = targetHeight;
+        chartCanvas.width = targetWidth;
 
+        // Update fullscreen button visual state.
         if (fscreen.fullscreenEnabled && fscreen.fullscreenElement) {
-          document.body.classList.add('is-fullscreen');
           minimize.classList.remove('hidden');
           maximize.classList.add('hidden');
         } else {
-          document.body.classList.remove('is-fullscreen');
           minimize.classList.add('hidden');
           maximize.classList.remove('hidden');
         }
-
-        chartCanvas.height = targetHeight;
-        chartCanvas.width = targetWidth;
-        console.log(`${targetWidth} x ${targetHeight}`);
       }
 
       function toggleFullScreen() {
@@ -195,6 +219,7 @@
         return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
       }
 
+      // http://youmightnotneedjquery.com/#ready
       function onReady(fn) {
         if (document.readyState != 'loading'){
           fn();
@@ -209,7 +234,7 @@
         box-sizing: border-box;
         padding: 0;
         margin: 0;
-        font-family: Rokkitt, Tahoma, sans;
+        font-family: Rokkitt, Tahoma, sans-serif;
         color: #eee;
       }
 
@@ -261,9 +286,14 @@
         font-size: 45px;
       }
 
+      .caption-line {
+        width: 100%;
+        display: flex;
+      }
+
       .caption .amount {
+        flex-grow: 1;
         display: inline-block;
-        width: 250px;
       }
 
       .hidden {
@@ -299,14 +329,16 @@
         opacity: 0.6;
       }
 
-      #offline {
-      }
-
       #MemAvailable {
+        flex-grow: 1;
         text-align: right;
+      }
+      #MemTotal {
+        flex-grow: 1;
       }
     </style>
   </head>
+
   <body>
     <div class="container">
       <div id="chart-container">
@@ -322,9 +354,9 @@
         </div>
       </div>
       <div class="caption">
-        <div>
+        <div class="caption-line">
           <span id="MemAvailable" class="amount">0</span>
-          &nbsp;/&nbsp;
+          <span >&nbsp;/&nbsp;</span>
           <span id="MemTotal" class="amount">0</span>
         </div>
         <div class="small-text">
