@@ -2,111 +2,10 @@
   <head>
     <title>MemGraph</title>
     <link href="https://fonts.googleapis.com/css2?family=Rokkitt:wght@700&display=swap" rel="stylesheet">
-    <style type="text/css">
-      * {
-        box-sizing: border-box;
-        padding: 0;
-        margin: 0;
-        font-family: Rokkitt, Tahoma, sans;
-        color: #eee;
-      }
-
-      body {
-        background-color: #111;
-      }
-
-      .container {
-        width: 100%;
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        align-items: center;
-        padding: 10px;
-      }
-
-      #chart-container {
-        width: 100%;
-        flex-grow: 1;
-        display: flex;
-        flex-wrap: nowrap;
-      }
-
-      #chart {
-        width: 100%;
-        height: 100%;
-      }
-
-      div.smoothie-chart-tooltip {
-        background: #444;
-        padding: 1em;
-        margin-top: 20px;
-        font-family: consolas;
-        color: white;
-        font-size: 10px;
-        pointer-events: none;
-      }
-
-      .caption {
-        margin-top: 20px;
-        width: 100%;
-        height: 100px;
-        flex-shrink: 0;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        font-size: 45px;
-      }
-
-      .caption .amount {
-        display: inline-block;
-        width: 250px;
-      }
-
-      .hidden {
-        display: none;
-      }
-
-      .low-memory {
-        color: #F88;
-        text-decoration: underline;
-      }
-
-      .small-text {
-        font-size: 20px;
-      }
-
-      .icon {
-        font-size: 24px;
-        padding: 20px;
-      }
-
-      #status-icons {
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        left: 10px;
-        top: 0;
-        margin-left: -100%;
-      }
-
-      #fullscreen {
-        cursor: pointer;
-        opacity: 0.6;
-      }
-
-      #offline {
-      }
-
-      #MemAvailable {
-        text-align: right;
-      }
-    </style>
     <script src="/socket.io/socket.io.js"></script>
     <script src="/vendor/smoothie.js"></script>
     <script src="/vendor/fscreen.js"></script>
+
     <script type="text/javascript">
       // Under this threshold, the display will change appearance.
       const LOW_MEMORY_MB = 800;
@@ -304,6 +203,109 @@
         }
       }
     </script>
+
+    <style type="text/css">
+      * {
+        box-sizing: border-box;
+        padding: 0;
+        margin: 0;
+        font-family: Rokkitt, Tahoma, sans;
+        color: #eee;
+      }
+
+      body {
+        background-color: #111;
+      }
+
+      .container {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px;
+      }
+
+      #chart-container {
+        width: 100%;
+        flex-grow: 1;
+        display: flex;
+        flex-wrap: nowrap;
+      }
+
+      #chart {
+        width: 100%;
+        height: 100%;
+      }
+
+      div.smoothie-chart-tooltip {
+        background: #444;
+        padding: 1em;
+        margin-top: 20px;
+        font-family: consolas;
+        color: white;
+        font-size: 10px;
+        pointer-events: none;
+      }
+
+      .caption {
+        margin-top: 20px;
+        width: 100%;
+        height: 100px;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        font-size: 45px;
+      }
+
+      .caption .amount {
+        display: inline-block;
+        width: 250px;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      .low-memory {
+        color: #F88;
+        text-decoration: underline;
+      }
+
+      .small-text {
+        font-size: 20px;
+      }
+
+      .icon {
+        font-size: 24px;
+        padding: 20px;
+      }
+
+      #status-icons {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        left: 10px;
+        top: 0;
+        margin-left: -100%;
+      }
+
+      #fullscreen {
+        cursor: pointer;
+        opacity: 0.6;
+      }
+
+      #offline {
+      }
+
+      #MemAvailable {
+        text-align: right;
+      }
+    </style>
   </head>
   <body>
     <div class="container">
