@@ -28,6 +28,8 @@
         stroke: '#FF1111',
       }
 
+      const IS_MOBILE = !!navigator.userAgent.match(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i);
+
       let socket;
       let canvas;
       let line;
@@ -41,7 +43,7 @@
       function main() {
         socket = io();
         canvas = document.getElementById('chart');
-        line = new TimeSeries();
+        line = new TimeSeries({ resetBounds: false });
         maxButton = document.getElementById('maximize');
         minButton = document.getElementById('minimize');
         offlineIcon = document.getElementById('offline');
@@ -141,7 +143,7 @@
       // Copy canvas to favicon for fun.
       function updateFavicon(canvas) {
         if (Date.now() - faviconUpdatedAt < FAVICON_UPDATE_INTERVAL_MS) return;
-        faviconUpdatedAt = Date.now();
+        faviconUpdatedAt = IS_MOBILE ? -Infinity : Date.now();
 
         const existingIcon = document.querySelector('link[rel="icon"]');
         const newIcon = document.createElement('link');
