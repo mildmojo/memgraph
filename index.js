@@ -11,6 +11,7 @@ const io = socketio(server);
 
 const host = process.env.MEMGRAPH_HOST || '127.0.0.1';
 const port = process.env.MEMGRAPH_PORT || 9500;
+const memCmd = process.env.MEMGRAPH_CMD || 'cat /proc/meminfo';
 
 app.use('/vendor', express.static(__dirname + '/vendor'));
 
@@ -48,7 +49,7 @@ function parseMemInfo(text) {
 async function getMemInfo() {
   let memInfoText = '';
   try {
-    const result = await exec('cat /proc/meminfo');
+    const result = await exec(memCmd);
     memInfoText = result.stdout;
   } catch (e) {
     console.warn(e.message.trim());
